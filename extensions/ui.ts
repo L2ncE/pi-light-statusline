@@ -121,5 +121,5 @@ export const DEFAULT_COLORS: Record<SegmentId, string> = {
 	git: "success",
 	context: "dim",
 	tps: "#00afaf",
-	cache_rate: "#00afaf",
+	cache_rate: "#ffaf00",
 };
