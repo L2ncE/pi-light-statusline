@@ -120,6 +120,6 @@ export const DEFAULT_COLORS: Record<SegmentId, string> = {
 	path: "text",
 	git: "success",
 	context: "dim",
-	tps: "muted",
-	cache_rate: "muted",
+	tps: "#00afaf",
+	cache_rate: "#00afaf",
 };

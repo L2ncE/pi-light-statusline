@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_LEFT, DEFAULT_RIGHT, normalizeConfig } from "../extensions/config.ts";
+import { DEFAULT_LINE1, DEFAULT_LINE2, DEFAULT_RIGHT, normalizeConfig } from "../extensions/config.ts";
 import { applyColor, formatTokens, hexToAnsi, rainbow } from "../extensions/ui.ts";
 import { parseVibeResponse } from "../extensions/vibes.ts";
 
 test("normalizeConfig defaults when given nothing", () => {
 	const config = normalizeConfig(undefined);
-	assert.deepEqual(config.left, DEFAULT_LEFT);
+	assert.deepEqual(config.line1, DEFAULT_LINE1);
+	assert.deepEqual(config.line2, DEFAULT_LINE2);
 	assert.deepEqual(config.right, DEFAULT_RIGHT);
 	assert.deepEqual(config.colors, {});
 	assert.equal(config.vibes.enabled, false);
@@ -16,9 +17,20 @@ test("normalizeConfig defaults when given nothing", () => {
 });
 
 test("normalizeConfig drops unknown segment ids and dedupes", () => {
-	const config = normalizeConfig({ left: ["model", "bogus", "git", "model"], right: [] });
-	assert.deepEqual(config.left, ["model", "git"]);
+	const config = normalizeConfig({ line1: ["model", "bogus", "git", "model"], line2: ["tps"], right: [] });
+	assert.deepEqual(config.line1, ["model", "git"]);
+	assert.deepEqual(config.line2, ["tps"]);
 	assert.deepEqual(config.right, []);
+});
+
+test("legacy single-line left config splits into the two-line layout", () => {
+	const config = normalizeConfig({
+		left: ["path", "git", "context", "tps", "cache_rate"],
+		right: ["model", "thinking"],
+	});
+	assert.deepEqual(config.line1, ["path", "git"]);
+	assert.deepEqual(config.line2, ["context", "tps", "cache_rate"]);
+	assert.deepEqual(config.right, ["model", "thinking"]);
 });
 
 test("normalizeConfig keeps only known color/icon keys as trimmed strings", () => {

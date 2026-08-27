@@ -35,14 +35,16 @@ export interface VibesConfig {
 }
 
 export interface StatuslineConfig {
-	left: SegmentId[];
+	line1: SegmentId[];
+	line2: SegmentId[];
 	right: SegmentId[];
 	colors: Partial<Record<SegmentId, string>>;
 	icons: Partial<Record<SegmentId, string>>;
 	vibes: VibesConfig;
 }
 
-export const DEFAULT_LEFT: SegmentId[] = ["path", "git", "context", "tps", "cache_rate"];
+export const DEFAULT_LINE1: SegmentId[] = ["path", "git"];
+export const DEFAULT_LINE2: SegmentId[] = ["context", "tps", "cache_rate"];
 export const DEFAULT_RIGHT: SegmentId[] = ["model", "thinking"];
 
 export const DEFAULT_VIBES_PROMPT = `Generate a 2-4 word "{theme}" themed loading message ending in "...".
@@ -77,6 +79,31 @@ function normalizeSegmentList(value: unknown, fallback: SegmentId[]): SegmentId[
 	return [...new Set(ids)];
 }
 
+/** Assign ids to line1/line2/right: explicit arrays win, missing ones fall back to defaults. */
+function normalizeLayout(raw: Record<string, unknown>): Pick<StatuslineConfig, "line1" | "line2" | "right"> {
+	const explicitLine1 = Array.isArray(raw.line1) ? normalizeSegmentList(raw.line1, DEFAULT_LINE1) : null;
+	const explicitLine2 = Array.isArray(raw.line2) ? normalizeSegmentList(raw.line2, DEFAULT_LINE2) : null;
+	const explicitRight = Array.isArray(raw.right) ? normalizeSegmentList(raw.right, DEFAULT_RIGHT) : null;
+	const hasLegacy = Array.isArray(raw.left) || Array.isArray(raw.right);
+	if (!hasLegacy) {
+		// Fresh config (or partial): defaults fill whatever was not provided.
+		return {
+			line1: explicitLine1 ?? [...DEFAULT_LINE1],
+			line2: explicitLine2 ?? [...DEFAULT_LINE2],
+			right: explicitRight ?? [...DEFAULT_RIGHT],
+		};
+	}
+	if (explicitLine1 && explicitLine2) {
+		return { line1: explicitLine1, line2: explicitLine2, right: explicitRight ?? [...DEFAULT_RIGHT] };
+	}
+	// Legacy single-line shape: split the old left list so stats go to line 2
+	// and path/git stay on line 1, like the built-in footer.
+	const legacy = Array.isArray(raw.left) ? normalizeSegmentList(raw.left, DEFAULT_LINE1) : DEFAULT_LINE1;
+	const line1 = explicitLine1 ?? legacy.filter((id) => id === "path" || id === "git");
+	const line2 = explicitLine2 ?? legacy.filter((id) => id !== "path" && id !== "git");
+	return { line1, line2, right: explicitRight ?? [...DEFAULT_RIGHT] };
+}
+
 function normalizeStringMap(value: unknown, validKeys: readonly string[]): Record<string, string> {
 	if (!isRecord(value)) return {};
 	const out: Record<string, string> = {};
@@ -109,9 +136,9 @@ function normalizeVibes(value: unknown): VibesConfig {
 
 export function normalizeConfig(raw: unknown): StatuslineConfig {
 	const v = isRecord(raw) ? raw : {};
+	const layout = normalizeLayout(v);
 	return {
-		left: normalizeSegmentList(v.left, DEFAULT_LEFT),
-		right: normalizeSegmentList(v.right, DEFAULT_RIGHT),
+		...layout,
 		colors: normalizeStringMap(v.colors, SEGMENT_IDS) as Partial<Record<SegmentId, string>>,
 		icons: normalizeStringMap(v.icons, SEGMENT_IDS) as Partial<Record<SegmentId, string>>,
 		vibes: normalizeVibes(v.vibes),

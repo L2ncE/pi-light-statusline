@@ -41,7 +41,7 @@ export function onVibeAgentEnd(setWorkingMessage: (msg?: string) => void): void 
 
 export function onVibeBeforeAgentStart(prompt: string, setWorkingMessage: (msg?: string) => void): void {
 	if (!vibeConfig?.enabled || !vibeConfig.theme) return;
-	setStyled(setWorkingMessage, `Channeling ${vibeConfig.theme}...`);
+	setStyled(setWorkingMessage, `${vibeConfig.fallback}...`);
 	void generateAndUpdate(prompt, setWorkingMessage);
 }
 

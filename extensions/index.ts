@@ -7,7 +7,6 @@
 // Segment ids and all options are configured via the "lightStatusline" block
 // in ~/.pi/agent/settings.json; see config.ts for the schema.
 
-import { basename } from "node:path";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isRecord, loadConfig, type SegmentId } from "./config.ts";
@@ -92,32 +91,35 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	// TPS: output tokens of the current assistant message divided by its
-	// elapsed streaming time. Hidden until 1s has passed (startup spike).
+	// elapsed streaming time. Sticks between messages (never reset to null on
+	// message_start) so the footer never flickers empty between turns.
+	function updateTps(message: unknown, minElapsedSec: number): void {
+		if (!isRecord(message) || message.role !== "assistant" || !streamStartMs) return;
+		const usage = isRecord(message.usage) ? message.usage : null;
+		const output = typeof usage?.output === "number" ? usage.output : 0;
+		const elapsedSec = (Date.now() - streamStartMs) / 1000;
+		if (output > 0 && elapsedSec >= minElapsedSec) {
+			// ponytail: clamp raw ratio; a streaming hiccup can report huge spikes.
+			liveTps = Math.min(output / elapsedSec, 9999);
+			requestRender?.();
+		}
+	}
+
 	pi.on("message_start", async (event, c) => {
 		ctx = c;
-		if (event.message?.role === "assistant") {
+		if (isRecord(event.message) && event.message.role === "assistant") {
 			streamStartMs = Date.now();
-			liveTps = null;
 		}
 	});
 	pi.on("message_update", async (event, c) => {
 		ctx = c;
-		if (event.message?.role !== "assistant" || !streamStartMs) return;
-		const output = event.message.usage?.output ?? 0;
-		const elapsedSec = (Date.now() - streamStartMs) / 1000;
-		if (output > 0 && elapsedSec >= 1) {
-			liveTps = output / elapsedSec;
-			requestRender?.();
-		}
+		updateTps(event.message, 1);
 	});
 	pi.on("message_end", async (event, c) => {
 		ctx = c;
-		if (event.message?.role !== "assistant" || !streamStartMs) return;
-		const output = event.message.usage?.output ?? 0;
-		const elapsedSec = (Date.now() - streamStartMs) / 1000;
-		liveTps = output > 0 && elapsedSec > 0 ? output / elapsedSec : null;
+		if (!isRecord(event.message) || event.message.role !== "assistant" || !streamStartMs) return;
+		updateTps(event.message, 1);
 		streamStartMs = 0;
-		requestRender?.();
 	});
 
 	function segmentColor(id: SegmentId): string {
@@ -181,9 +183,13 @@ export default function (pi: ExtensionAPI): void {
 				return { text: colored, visible: true };
 			}
 			case "path": {
+				// Full path like the built-in footer: ~-abbreviated home, plain elsewhere.
 				const cwd = ctx?.cwd ?? process.cwd();
-				const text = withIcon(icons.path, basename(cwd) || cwd);
-				return { text: applyColor(theme, segmentColor("path"), text), visible: true };
+				const home = process.env.HOME || process.env.USERPROFILE;
+				const path = home && (cwd === home || cwd.startsWith(`${home}/`))
+					? `~${cwd.slice(home.length)}`
+					: cwd;
+				return { text: applyColor(theme, segmentColor("path"), withIcon(icons.path, path)), visible: true };
 			}
 			case "git": {
 				const branch = footerData.getGitBranch();
@@ -211,7 +217,8 @@ export default function (pi: ExtensionAPI): void {
 				const promptTokens = usage.input + usage.cacheRead + usage.cacheWrite;
 				if (promptTokens <= 0 || !(usage.cacheRead > 0 || usage.cacheWrite > 0)) return HIDDEN;
 				const percent = (usage.cacheRead / promptTokens) * 100;
-				return { text: applyColor(theme, segmentColor("cache_rate"), withIcon(icons.cache_rate, `${Math.round(percent)}%`)), visible: true };
+				const text = withIcon(icons.cache_rate, `Cache ${Math.round(percent)}%`);
+				return { text: applyColor(theme, segmentColor("cache_rate"), text), visible: true };
 			}
 		}
 	}
@@ -229,32 +236,38 @@ export default function (pi: ExtensionAPI): void {
 
 	function renderFooter(width: number, theme: ThemeLike, footerData: FooterData): string[] {
 		try {
-			const left = config.left
+			const line1Left = config.line1
 				.map((id) => renderSegment(id, theme, footerData))
 				.filter((s) => s.visible)
 				.map((s) => s.text)
 				.join(" / ");
-			const right = config.right
+			const line2Left = config.line2
+				.map((id) => renderSegment(id, theme, footerData))
+				.filter((s) => s.visible)
+				.map((s) => s.text)
+				.join(" ");
+			const line2Right = config.right
 				.map((id) => renderSegment(id, theme, footerData))
 				.filter((s) => s.visible)
 				.map((s) => s.text)
 				.join("  ");
 
-			const leftWidth = visibleWidth(left);
-			const rightWidth = visibleWidth(right);
-			let line: string;
-			if (leftWidth > width) {
-				line = truncateToWidth(left, width, "...");
+			// Line 2 mirrors the built-in footer: stats left, right-aligned model,
+			// truncate the right side first, then the left overflow.
+			const l2LeftWidth = visibleWidth(line2Left);
+			let line2: string;
+			if (l2LeftWidth > width) {
+				line2 = truncateToWidth(line2Left, width, "...");
 			} else {
-				const availableForRight = width - leftWidth - 2;
-				const rightText = rightWidth > availableForRight
-					? truncateToWidth(right, Math.max(0, availableForRight), "")
-					: right;
-				const pad = " ".repeat(Math.max(0, width - leftWidth - visibleWidth(rightText)));
-				line = left + pad + rightText;
+				const availableForRight = width - l2LeftWidth - 2;
+				const rightText = visibleWidth(line2Right) > availableForRight
+					? truncateToWidth(line2Right, Math.max(0, availableForRight), "")
+					: line2Right;
+				const pad = " ".repeat(Math.max(0, width - l2LeftWidth - visibleWidth(rightText)));
+				line2 = line2Left + pad + rightText;
 			}
 
-			const lines = [line];
+			const lines = [truncateToWidth(line1Left, width, "..."), line2];
 			const statuses = renderStatusesLine(width, theme, footerData);
 			if (statuses) lines.push(statuses);
 			return lines;
