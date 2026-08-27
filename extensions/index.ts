@@ -92,7 +92,9 @@ export default function (pi: ExtensionAPI): void {
 
 	// TPS: output tokens of the current assistant message divided by its
 	// elapsed streaming time. Sticks between messages (never reset to null on
-	// message_start) so the footer never flickers empty between turns.
+	// message_start) so the footer never flickers empty between turns. The
+	// first second of streaming is skipped (startup spike); message_end always
+	// freezes the real value so short replies still report their true speed.
 	function updateTps(message: unknown, minElapsedSec: number): void {
 		if (!isRecord(message) || message.role !== "assistant" || !streamStartMs) return;
 		const usage = isRecord(message.usage) ? message.usage : null;
@@ -118,7 +120,7 @@ export default function (pi: ExtensionAPI): void {
 	pi.on("message_end", async (event, c) => {
 		ctx = c;
 		if (!isRecord(event.message) || event.message.role !== "assistant" || !streamStartMs) return;
-		updateTps(event.message, 1);
+		updateTps(event.message, 0);
 		streamStartMs = 0;
 	});
 
