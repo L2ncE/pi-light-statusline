@@ -207,16 +207,16 @@ export default function (pi: ExtensionAPI): void {
 				return { text: applyColor(theme, color, withIcon(icons.context, text)), visible: true };
 			}
 			case "tps": {
-				if (liveTps === null || !Number.isFinite(liveTps) || liveTps <= 0) return HIDDEN;
-				const text = withIcon(icons.tps, `${Math.round(liveTps)} tok/s`);
+				// Always visible: 0 tok/s until the first assistant message finishes.
+				const tps = liveTps !== null && Number.isFinite(liveTps) && liveTps > 0 ? Math.round(liveTps) : 0;
+				const text = withIcon(icons.tps, `${tps} tok/s`);
 				return { text: applyColor(theme, segmentColor("tps"), text), visible: true };
 			}
 			case "cache_rate": {
+				// Always visible: Cache 0% until a turn reports usage.
 				const usage = lastAssistantUsage();
-				if (!usage) return HIDDEN;
-				const promptTokens = usage.input + usage.cacheRead + usage.cacheWrite;
-				if (promptTokens <= 0 || !(usage.cacheRead > 0 || usage.cacheWrite > 0)) return HIDDEN;
-				const percent = (usage.cacheRead / promptTokens) * 100;
+				const promptTokens = usage ? usage.input + usage.cacheRead + usage.cacheWrite : 0;
+				const percent = promptTokens > 0 ? (usage!.cacheRead / promptTokens) * 100 : 0;
 				const text = withIcon(icons.cache_rate, `Cache ${Math.round(percent)}%`);
 				return { text: applyColor(theme, segmentColor("cache_rate"), text), visible: true };
 			}
