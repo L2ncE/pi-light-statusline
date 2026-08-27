@@ -240,7 +240,7 @@ export default function (pi: ExtensionAPI): void {
 				.map((id) => renderSegment(id, theme, footerData))
 				.filter((s) => s.visible)
 				.map((s) => s.text)
-				.join(" / ");
+				.join("  ");
 			const line2Left = config.line2
 				.map((id) => renderSegment(id, theme, footerData))
 				.filter((s) => s.visible)

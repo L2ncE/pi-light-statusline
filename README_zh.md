@@ -26,7 +26,7 @@ pi 内置 footer 信息够用但没有颜色，也看不到生成速度；
 - **AI working vibes**（可选，默认关闭）—— 用你指定的模型生成主题化加载文案
 
 ```
- gists.lanlance.cn /  main
+ gists.lanlance.cn   main
   53k/1.0M (5.3%)  47 tok/s  78% Cache                          glm-5.3  󰠚 xhigh
 ```
 
