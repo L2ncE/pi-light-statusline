@@ -26,8 +26,8 @@ pi 内置 footer 信息够用但没有颜色，也看不到生成速度；
 - **AI working vibes**（可选，默认关闭）—— 用你指定的模型生成主题化加载文案
 
 ```
- gists.lanlance.cn   main
-  53k/1.0M (5.3%)  47 tok/s  78% Cache                          glm-5.3  󰠚 xhigh
+ gists.lanlance.cn   main   53k/1.0M (5.3%)
+ 47 tok/s  78% Cache                               glm-5.3  󰠚 xhigh
 ```
 
 其他扩展的 footer 状态（比如 subagent 工具的）不受影响：和内置 footer 一样，
@@ -75,8 +75,8 @@ pi -e /path/to/pi-light-statusline
 ```jsonc
 {
   "lightStatusline": {
-    "line1": ["path", "git"],
-    "line2": ["context", "tps", "cache_rate"],
+    "line1": ["path", "git", "context"],
+    "line2": ["tps", "cache_rate"],
     "right": ["model", "thinking"],
     "colors": {
       "model": "#0ABAB5",
@@ -90,7 +90,7 @@ pi -e /path/to/pi-light-statusline
 }
 ```
 
-- **`line1` / `line2` / `right`** —— 每行的 segment id 顺序：第一行（path/git）、第二行统计（context/tps/cache_rate）、右侧对齐（model/thinking）。旧版单一 `left` 数组会自动拆分。未知 id 忽略。
+- **`line1` / `line2` / `right`** —— 每行的 segment id 顺序：第一行（path/git/context）、第二行统计（tps/cache_rate）、右侧对齐（model/thinking）。旧版单一 `left` 数组会自动拆分。未知 id 忽略。
 - **`colors`** —— 每格颜色：pi 主题色名（`accent`、`warning`、`dim` 等）或 `#RRGGBB`。默认用低调的主题色；`context` 在 70%/90% 阈值时始终升级为 `warning`/`error`。
 - **`icons`** —— 每格图标覆盖。自动检测终端（`LIGHT_STATUSLINE_NERD_FONTS=1` 强制开，`=0` 强制关）。
 

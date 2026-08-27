@@ -43,8 +43,8 @@ export interface StatuslineConfig {
 	vibes: VibesConfig;
 }
 
-export const DEFAULT_LINE1: SegmentId[] = ["path", "git"];
-export const DEFAULT_LINE2: SegmentId[] = ["context", "tps", "cache_rate"];
+export const DEFAULT_LINE1: SegmentId[] = ["path", "git", "context"];
+export const DEFAULT_LINE2: SegmentId[] = ["tps", "cache_rate"];
 export const DEFAULT_RIGHT: SegmentId[] = ["model", "thinking"];
 
 export const DEFAULT_VIBES_PROMPT = `Generate a 2-4 word "{theme}" themed loading message ending in "...".
@@ -99,8 +99,8 @@ function normalizeLayout(raw: Record<string, unknown>): Pick<StatuslineConfig, "
 	// Legacy single-line shape: split the old left list so stats go to line 2
 	// and path/git stay on line 1, like the built-in footer.
 	const legacy = Array.isArray(raw.left) ? normalizeSegmentList(raw.left, DEFAULT_LINE1) : DEFAULT_LINE1;
-	const line1 = explicitLine1 ?? legacy.filter((id) => id === "path" || id === "git");
-	const line2 = explicitLine2 ?? legacy.filter((id) => id !== "path" && id !== "git");
+	const line1 = explicitLine1 ?? legacy.filter((id) => id === "path" || id === "git" || id === "context");
+	const line2 = explicitLine2 ?? legacy.filter((id) => id !== "path" && id !== "git" && id !== "context");
 	return { line1, line2, right: explicitRight ?? [...DEFAULT_RIGHT] };
 }
 

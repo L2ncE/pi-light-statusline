@@ -28,8 +28,8 @@ test("legacy single-line left config splits into the two-line layout", () => {
 		left: ["path", "git", "context", "tps", "cache_rate"],
 		right: ["model", "thinking"],
 	});
-	assert.deepEqual(config.line1, ["path", "git"]);
-	assert.deepEqual(config.line2, ["context", "tps", "cache_rate"]);
+	assert.deepEqual(config.line1, ["path", "git", "context"]);
+	assert.deepEqual(config.line2, ["tps", "cache_rate"]);
 	assert.deepEqual(config.right, ["model", "thinking"]);
 });
 
