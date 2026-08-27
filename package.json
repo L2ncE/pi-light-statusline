@@ -1,6 +1,6 @@
 {
   "name": "pi-light-statusline",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Lightweight colored statusline for the pi coding agent: official-style layout, icons, live tok/s, cache-hit rate, and optional AI working vibes",
   "type": "module",
   "license": "MIT",
