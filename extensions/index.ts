@@ -42,9 +42,8 @@ export default function (pi: ExtensionAPI): void {
 	let ctx: ExtensionContext | null = null;
 	let requestRender: (() => void) | null = null;
 
-	// TPS state for the assistant message currently streaming (or the last
-	// completed one; frozen until the next message starts).
-	let streamStartMs = 0;
+	// TPS state: turn-average throughput, frozen at turn_end and sticky
+	// between turns (see the turn tracking block below).
 	let liveTps: number | null = null;
 
 	pi.on("session_start", async (_event, c) => {
@@ -90,38 +89,59 @@ export default function (pi: ExtensionAPI): void {
 		if (c.hasUI) onVibeAgentEnd(c.ui.setWorkingMessage);
 	});
 
-	// TPS: output tokens of the current assistant message divided by its
-	// elapsed streaming time. Sticks between messages (never reset to null on
-	// message_start) so the footer never flickers empty between turns. The
-	// first second of streaming is skipped (startup spike); message_end always
-	// freezes the real value so short replies still report their true speed.
-	function updateTps(message: unknown, minElapsedSec: number): void {
-		if (!isRecord(message) || message.role !== "assistant" || !streamStartMs) return;
-		const usage = isRecord(message.usage) ? message.usage : null;
-		const output = typeof usage?.output === "number" ? usage.output : 0;
-		const elapsedSec = (Date.now() - streamStartMs) / 1000;
-		if (output > 0 && elapsedSec >= minElapsedSec) {
-			// ponytail: clamp raw ratio; a streaming hiccup can report huge spikes.
-			liveTps = Math.min(output / elapsedSec, 9999);
-			requestRender?.();
-		}
+	// TPS: turn-average throughput — cumulative output tokens of every
+	// assistant message in the current turn, divided by the turn's wall-clock
+	// time (tool execution included). While streaming it shows the running
+	// average; turn_end freezes the final value, which sticks until the next
+	// turn completes. The first second is skipped (startup spike).
+	let turnStartMs = 0;
+	let turnOutputTokens = 0;
+	let lastMessageEndMs = 0;
+
+	function clampTps(value: number): number {
+		// ponytail: clamp raw ratio; a streaming hiccup can report huge spikes.
+		return Math.min(value, 9999);
 	}
 
-	pi.on("message_start", async (event, c) => {
+	pi.on("turn_start", async (event, c) => {
 		ctx = c;
-		if (isRecord(event.message) && event.message.role === "assistant") {
-			streamStartMs = Date.now();
-		}
+		turnStartMs = typeof event.timestamp === "number" ? event.timestamp : Date.now();
+		turnOutputTokens = 0;
+		lastMessageEndMs = 0;
 	});
 	pi.on("message_update", async (event, c) => {
 		ctx = c;
-		updateTps(event.message, 1);
+		if (!isRecord(event.message) || event.message.role !== "assistant" || !isRecord(event.message.usage)) return;
+		const output = typeof event.message.usage.output === "number" ? event.message.usage.output : 0;
+		if (output > 0 && turnStartMs) {
+			// Streaming message in progress: preview = committed sum + this message's
+			// running total, over the turn's elapsed time.
+			const elapsedSec = (Date.now() - turnStartMs) / 1000;
+			if (elapsedSec >= 1) {
+				// ponytail: clamp raw ratio; a streaming hiccup can report huge spikes.
+				liveTps = clampTps((turnOutputTokens + output) / elapsedSec);
+				requestRender?.();
+			}
+		}
 	});
 	pi.on("message_end", async (event, c) => {
 		ctx = c;
-		if (!isRecord(event.message) || event.message.role !== "assistant" || !streamStartMs) return;
-		updateTps(event.message, 0);
-		streamStartMs = 0;
+		if (!isRecord(event.message) || event.message.role !== "assistant" || !isRecord(event.message.usage)) return;
+		const output = typeof event.message.usage.output === "number" ? event.message.usage.output : 0;
+		if (output > 0) turnOutputTokens += output;
+		lastMessageEndMs = Date.now();
+	});
+	pi.on("turn_end", async (_event, c) => {
+		ctx = c;
+		// Freeze at the turn's final average: total output / total wall time.
+		if (turnStartMs && turnOutputTokens > 0) {
+			const elapsedSec = (Math.max(lastMessageEndMs, Date.now()) - turnStartMs) / 1000;
+			if (elapsedSec > 0) {
+				liveTps = clampTps(turnOutputTokens / elapsedSec);
+				requestRender?.();
+			}
+		}
+		turnStartMs = 0;
 	});
 
 	function segmentColor(id: SegmentId): string {
