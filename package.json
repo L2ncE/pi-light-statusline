@@ -1,0 +1,48 @@
+{
+  "name": "pi-light-statusline",
+  "version": "0.1.0",
+  "description": "Lightweight colored statusline for the pi coding agent: official-style layout, icons, live tok/s, cache-hit rate, and optional AI working vibes",
+  "type": "module",
+  "license": "MIT",
+  "author": "L2ncE <llance_24@foxmail.com>",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "statusline",
+    "footer",
+    "powerline",
+    "vibes"
+  ],
+  "files": [
+    "extensions/**/*.ts",
+    "README.md",
+    "README_zh.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --test tests/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/L2ncE/pi-light-statusline.git"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=0.81.0",
+    "@earendil-works/pi-coding-agent": ">=0.81.0",
+    "@earendil-works/pi-tui": ">=0.81.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^0.84.1",
+    "@earendil-works/pi-coding-agent": "^0.84.1",
+    "@earendil-works/pi-tui": "^0.84.1",
+    "@types/node": "24.13.3",
+    "typescript": "^5.9.3"
+  }
+}
