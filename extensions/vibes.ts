@@ -83,6 +83,7 @@ export function parseVibeResponse(response: string, fallback: string, maxLength:
 	if (vibe.length > maxLength) {
 		vibe = vibe.slice(0, maxLength - 3) + "...";
 	}
+	vibe = vibe.replace(/\s+\.\.\.$/, "...");
 
 	if (!vibe || vibe === "...") return `${fallback}...`;
 	return vibe;
